@@ -154,6 +154,34 @@ def list_calendar() -> str:
     ], indent=2)
 
 
+@mcp.tool()
+def add_calendar_event(title: str, start_datetime: str, end_datetime: str,
+                       description: str = "") -> str:
+    """Add an event to the calendar. Times are ISO 8601, e.g. 2026-06-12T14:00:00."""
+    con = _conn()
+    nid = (con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM events").fetchone()[0])
+    con.execute("INSERT INTO events VALUES (?,?,?,?,?,?)",
+                (nid, title, start_datetime, end_datetime, "", description))
+    con.commit()
+    con.close()
+    return json.dumps({"added": {"event_id": nid, "title": title, "start": start_datetime}})
+
+
+@mcp.tool()
+def send_email(to: str, subject: str, body: str, account: str = "",
+               cc: str = "", thread_id: str = "") -> str:
+    """Send an email. In this synthetic connector nothing is actually delivered ---
+    the send is recorded so the flow can be demonstrated safely."""
+    con = _conn()
+    con.execute("CREATE TABLE IF NOT EXISTS sent (id integer PRIMARY KEY, "
+                "to_addr text, subject text, body text)")
+    nid = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM sent").fetchone()[0]
+    con.execute("INSERT INTO sent VALUES (?,?,?,?)", (nid, to, subject, body))
+    con.commit()
+    con.close()
+    return json.dumps({"status": "sent (simulated)", "to": to, "subject": subject})
+
+
 if __name__ == "__main__":
     build_db()
     app = mcp.streamable_http_app()
